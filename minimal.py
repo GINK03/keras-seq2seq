@@ -3,16 +3,16 @@ from keras.models import Model
 import numpy as np
 import random
 import sys
+import pickle
 
 timesteps   = 50
 input_dim   = 128
-latent_dim  = 512 
 inputs = Input(shape=(timesteps, input_dim))
-encoded = LSTM(latent_dim)(inputs)
+encoded = LSTM(512)(inputs)
 encoder = Model(inputs, encoded)
 
 x = RepeatVector(timesteps)(encoded)
-x = LSTM(input_dim, return_sequences=True)(x)
+x = LSTM(512, return_sequences=True)(x)
 decoded = Dense(128, activation='softmax')(x)
 
 autoencoder = Model(inputs, decoded)
@@ -41,7 +41,6 @@ def test():
   Ys = np.array( yss )
   autoencoder.fit(Xs, Ys)
 
-import pickle
 def train():
   c_i = pickle.loads( open("dataset/c_i.pkl", "rb").read() )
   xss = []
@@ -57,7 +56,7 @@ def train():
       xs = [ [0.]*128 for _ in range(50) ]
       for i, c in enumerate(head): 
         xs[i][c_i[c]] = 1.
-      print(np.array( list(reversed(xs)) ).shape)
+      ... #print(np.array( list(reversed(xs)) ).shape)
       xss.append( np.array( list(reversed(xs)) ) )
       
       ys = [ [0.]*128 for _ in range(50) ]
@@ -68,7 +67,7 @@ def train():
   Ys = np.array( yss )
   print(Xs.shape)
   for i in range(10):
-    autoencoder.fit( Xs, Ys,  shuffle=True, batch_size=2, nb_epoch=10 )
+    autoencoder.fit( Xs, Ys,  shuffle=True, batch_size=2, epochs=10 )
     autoencoder.save("models/%09d.h5"%i)
 if __name__ == '__main__':
   if '--test' in sys.argv:
