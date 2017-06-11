@@ -1,17 +1,20 @@
 from keras.layers import Input, Dense, GRU, LSTM, RepeatVector
 from keras.models import Model
+from keras.callbacks import LambdaCallback 
 import numpy as np
 import random
 import sys
 import pickle
-
+import glob
+import copy
 timesteps   = 50
-input_dim   = 128
-inputs = Input(shape=(timesteps, input_dim))
+inputs  = Input(shape=(timesteps, 128))
+#x       = LSTM(512, return_sequences=True)(inputs)
 encoded = LSTM(512)(inputs)
 encoder = Model(inputs, encoded)
 
 x = RepeatVector(timesteps)(encoded)
+x = LSTM(512, return_sequences=True)(x)
 x = LSTM(512, return_sequences=True)(x)
 decoded = Dense(128, activation='softmax')(x)
 
@@ -41,6 +44,13 @@ def test():
   Ys = np.array( yss )
   autoencoder.fit(Xs, Ys)
 
+buff = None
+def callbacks(epoch, logs):
+  global buff
+  buff = copy.copy(logs)
+  print("epoch" ,epoch)
+  print("logs", logs)
+
 def train():
   c_i = pickle.loads( open("dataset/c_i.pkl", "rb").read() )
   xss = []
@@ -48,7 +58,7 @@ def train():
   with open("dataset/corpus.distinct.txt", "r") as f:
     for fi, line in enumerate(f):
       print("now iter ", fi)
-      if fi > 1000: 
+      if fi >= 3000: 
         break
       line = line.strip()
       head, tail = line.split("___SP___")
@@ -66,9 +76,18 @@ def train():
   Xs = np.array( xss )
   Ys = np.array( yss )
   print(Xs.shape)
+  if '--resume' in sys.argv:
+    model = sorted( glob.glob("models/*.h5") ).pop(0)
+    print("loaded model is ", model)
+    autoencoder.load_weights(model)
   for i in range(10):
-    autoencoder.fit( Xs, Ys,  shuffle=True, batch_size=2, epochs=10 )
-    autoencoder.save("models/%09d.h5"%i)
+    
+    print_callback = LambdaCallback(on_epoch_end=callbacks)
+    batch_size = random.randint( 4, 64 )
+    autoencoder.fit( Xs, Ys,  shuffle=True, batch_size=batch_size, epochs=1, callbacks=[print_callback] )
+    autoencoder.save("models/%9f_%09d.h5"%(buff['loss'], i))
+    print("saved ..")
+    print("logs...", buff )
 if __name__ == '__main__':
   if '--test' in sys.argv:
     test()
