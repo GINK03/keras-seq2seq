@@ -1,28 +1,30 @@
 from keras.layers     import Input, Dense, GRU, LSTM, RepeatVector
 from keras.models     import Model
 from keras.callbacks  import LambdaCallback 
-from keras.optimizers import Adam
+from keras.optimizers import SGD, RMSprop, Adam
+from keras.layers.wrappers import Bidirectional as Bi
+from keras.layers.wrappers import TimeDistributed as TD
 import numpy as np
 import random
 import sys
 import pickle
 import glob
 import copy
+import os
+import re
 timesteps   = 50
 inputs  = Input(shape=(timesteps, 128))
-#x       = LSTM(512, return_sequences=True)(inputs)
 encoded = LSTM(512)(inputs)
 encoder = Model(inputs, encoded)
 
 x = RepeatVector(timesteps)(encoded)
-x = LSTM(512, return_sequences=True)(x)
-x = LSTM(512, return_sequences=True)(x)
-decoded = Dense(128, activation='softmax')(x)
+x = Bi(LSTM(512, return_sequences=True))(x)
+#x = LSTM(512, return_sequences=True)(x)
+decoded = TD(Dense(128, activation='softmax'))(x)
 
 autoencoder = Model(inputs, decoded)
 
 autoencoder.compile(optimizer=Adam(), loss='categorical_crossentropy')
-#autoencoder.compile(loss='categorical_crossentropy')
 
 def test():
   xss = []
@@ -60,7 +62,7 @@ def train():
   with open("dataset/corpus.distinct.txt", "r") as f:
     for fi, line in enumerate(f):
       print("now iter ", fi)
-      if fi >= 3000: 
+      if fi >= 100000: 
         break
       line = line.strip()
       head, tail = line.split("___SP___")
@@ -82,12 +84,16 @@ def train():
     model = sorted( glob.glob("models/*.h5") ).pop(0)
     print("loaded model is ", model)
     autoencoder.load_weights(model)
-  for i in range(10):
+
+    """ 確実に更新するため、古いデータは消す """
+    #os.system("rm models/*")
+  for i in range(1000):
     
     print_callback = LambdaCallback(on_epoch_end=callbacks)
-    batch_size = random.randint( 4, 64 )
-    random_optim = random.choice( [Adam(lr=0.001), Adam(lr=0.0001), Adam(lr=0.00001)] )
-    print( vars( autoencoder.optimizer.lr  ) )
+    batch_size = random.randint( 32, 64 )
+    random_optim = random.choice( [Adam(), SGD(), RMSprop()] )
+    #print( vars( autoencoder.optimizer.lr  ) )
+    print( random_optim )
     autoencoder.optimizer = random_optim
     #sys.exit()
     autoencoder.fit( Xs, Ys,  shuffle=True, batch_size=batch_size, epochs=1, callbacks=[print_callback] )
@@ -103,7 +109,7 @@ def predict():
   with open("dataset/corpus.distinct.txt", "r") as f:
     for fi, line in enumerate(f):
       print("now iter ", fi)
-      if fi >= 3000: 
+      if fi >= 1000: 
         break
       line = line.strip()
       head, tail = line.split("___SP___")
@@ -124,7 +130,8 @@ def predict():
     for v in y:
       term = max( [(s, i_c[i]) for i,s in enumerate(v)] , key=lambda x:x[0])[1]
       terms.append( term )
-    print( head, "".join( term ) )
+    tail = re.sub(r"」.*?$", "」", "".join( terms ) )
+    print( head, "___SP___", tail )
 if __name__ == '__main__':
   if '--test' in sys.argv:
     test()
