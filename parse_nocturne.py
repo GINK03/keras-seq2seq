@@ -33,16 +33,14 @@ def _gen_corpus(arr):
   return sens
 
 def gen_corpus():
-  files = glob.glob("../nocturne/*")
+  files = glob.glob("/home/gimpei/kotlin-headlessbrowser-selenium-jsoup-parser/data/nocturne/*")
   total = len(files)
-  args  = [ (i, total, name) for i, name in enumerate(glob.glob("../nocturne/*")) ]
+  args  = [ (i, total, name) for i, name in enumerate(files) ]
 
   sens  = []
   with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
     for _sens in executor.map(_gen_corpus, args[:20000]):
       sens += _sens
-
-
 
   m = MeCab.Tagger("-Ochasen")
   with open("corpus.txt", "w") as f:

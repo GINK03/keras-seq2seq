@@ -1,4 +1,4 @@
-from keras.layers import Input, Dense, LSTM, RepeatVector
+from keras.layers import Input, Dense, GRU, LSTM, RepeatVector
 from keras.models import Model
 import numpy as np
 import random
@@ -18,7 +18,6 @@ decoded = Dense(128, activation='softmax')(x)
 autoencoder = Model(inputs, decoded)
 
 autoencoder.compile(optimizer='adam', loss='categorical_crossentropy')
-
 
 def test():
   xss = []
@@ -43,10 +42,8 @@ def test():
   autoencoder.fit(Xs, Ys)
 
 import pickle
-def make_dataset():
-  
+def train():
   c_i = pickle.loads( open("dataset/c_i.pkl", "rb").read() )
-
   xss = []
   yss = []
   with open("dataset/corpus.distinct.txt", "r") as f:
@@ -67,15 +64,15 @@ def make_dataset():
       for i, c in enumerate(tail): 
         ys[i][c_i[c]] = 1.
       yss.append( np.array( ys ) )
-
-  
   Xs = np.array( xss )
   Ys = np.array( yss )
   print(Xs.shape)
-  autoencoder.fit( Xs, Ys )
+  for i in range(10):
+    autoencoder.fit( Xs, Ys,  shuffle=True, batch_size=2, nb_epoch=10 )
+    autoencoder.save("models/%09d.h5"%i)
 if __name__ == '__main__':
   if '--test' in sys.argv:
     test()
 
-  if '--md' in sys.argv:
-    make_dataset()
+  if '--train' in sys.argv:
+    train()
