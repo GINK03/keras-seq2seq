@@ -1,9 +1,11 @@
 from keras.layers     import Input, Dense, GRU, LSTM, RepeatVector
 from keras.models     import Model
+from keras.layers.core import Flatten
 from keras.callbacks  import LambdaCallback 
 from keras.optimizers import SGD, RMSprop, Adam
 from keras.layers.wrappers import Bidirectional as Bi
 from keras.layers.wrappers import TimeDistributed as TD
+from keras.layers          import merge
 import numpy as np
 import random
 import sys
@@ -13,17 +15,24 @@ import copy
 import os
 import re
 timesteps   = 50
-inputs  = Input(shape=(timesteps, 128))
-encoded = LSTM(512)(inputs)
-encoder = Model(inputs, encoded)
+inputs      = Input(shape=(timesteps, 128))
+encoded     = LSTM(512)(inputs)
+"""
+attentionを無効にするには、encodedをRepeatVectorに直接入力する 
+encoderのModelの入力をmulではなく、encodedにする
+"""
+inputs_a    = Input(shape=(timesteps, 128))
+a_vector    = Dense(512, activation='softmax')(Flatten()(inputs))
+mul         = merge([encoded, a_vector],  mode='mul') 
+encoder     = Model(inputs, mul)
 
-x = RepeatVector(timesteps)(encoded)
-x = Bi(LSTM(512, return_sequences=True))(x)
-#x = LSTM(512, return_sequences=True)(x)
-decoded = TD(Dense(128, activation='softmax'))(x)
+""" encoder側は、基本的にRNNをスタックしない """
+x           = RepeatVector(timesteps)(mul)
+x           = Bi(LSTM(512, return_sequences=True))(x)
+#x           = LSTM(512, return_sequences=True)(x)
+decoded     = TD(Dense(128, activation='softmax'))(x)
 
 autoencoder = Model(inputs, decoded)
-
 autoencoder.compile(optimizer=Adam(), loss='categorical_crossentropy')
 
 def test():
@@ -62,7 +71,7 @@ def train():
   with open("dataset/corpus.distinct.txt", "r") as f:
     for fi, line in enumerate(f):
       print("now iter ", fi)
-      if fi >= 100000: 
+      if fi >= 2000: 
         break
       line = line.strip()
       head, tail = line.split("___SP___")
@@ -120,7 +129,7 @@ def predict():
       xss.append( np.array( list(reversed(xs)) ) )
     
   Xs = np.array( xss[:128] )
-  model = sorted( glob.glob("models/*.h5") ).pop(0)
+  model = sorted( glob.glob("models.dataset1000/*.h5") ).pop(0)
   print("loaded model is ", model)
   autoencoder.load_weights(model)
 
