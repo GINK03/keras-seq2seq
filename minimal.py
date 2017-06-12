@@ -18,7 +18,7 @@ timesteps   = 50
 inputs      = Input(shape=(timesteps, 128))
 encoded     = LSTM(512)(inputs)
 """
-attentionを無効にするには、encodedをRepeatVectorに直接入力する 
+attを無効にするには、encodedをRepeatVectorに直接入力する 
 encoderのModelの入力をmulではなく、encodedにする
 """
 inputs_a    = Input(shape=(timesteps, 128))
@@ -71,7 +71,7 @@ def train():
   with open("dataset/corpus.distinct.txt", "r") as f:
     for fi, line in enumerate(f):
       print("now iter ", fi)
-      if fi >= 2000: 
+      if fi >= 10000: 
         break
       line = line.strip()
       head, tail = line.split("___SP___")
@@ -96,7 +96,7 @@ def train():
 
     """ 確実に更新するため、古いデータは消す """
     #os.system("rm models/*")
-  for i in range(1000):
+  for i in range(2000):
     
     print_callback = LambdaCallback(on_epoch_end=callbacks)
     batch_size = random.randint( 32, 64 )
