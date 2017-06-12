@@ -14,14 +14,16 @@ import glob
 import copy
 import os
 import re
+
+DIM         = 1024
 timesteps   = 50
-inputs      = Input(shape=(timesteps, 128))
+inputs      = Input(shape=(timesteps, DIM))
 encoded     = GRU(512)(inputs)
 """
 attを無効にするには、encodedをRepeatVectorに直接入力する 
 encoderのModelの入力をmulではなく、encodedにする
 """
-inputs_a    = Input(shape=(timesteps, 128))
+inputs_a    = Input(shape=(timesteps, DIM))
 a_vector    = Dense(512, activation='softmax')(Flatten()(inputs))
 mul         = merge([encoded, a_vector],  mode='mul') 
 encoder     = Model(inputs, mul)
@@ -30,7 +32,7 @@ encoder     = Model(inputs, mul)
 x           = RepeatVector(timesteps)(mul)
 x           = Bi(GRU(256*2, return_sequences=True))(x)
 #x           = LSTM(512, return_sequences=True)(x)
-decoded     = TD(Dense(128, activation='softmax'))(x)
+decoded     = TD(Dense(DIM, activation='softmax'))(x)
 
 autoencoder = Model(inputs, decoded)
 autoencoder.compile(optimizer=Adam(), loss='categorical_crossentropy')
@@ -46,21 +48,25 @@ def train():
   c_i = pickle.loads( open("dataset/c_i.pkl", "rb").read() )
   xss = []
   yss = []
-  with open("dataset/corpus.distinct.txt", "r") as f:
+  with open("dataset/wakati.distinct.txt", "r") as f:
     for fi, line in enumerate(f):
       print("now iter ", fi)
-      if fi >= 100000: 
+      if fi >= 1500: 
         break
       line = line.strip()
-      head, tail = line.split("___SP___")
+      try:
+        head, tail = line.split("___SP___")
+      except ValueError as e:
+        print(e)
+        continue
 
-      xs = [ [0.]*128 for _ in range(50) ]
+      xs = [ [0.]*DIM for _ in range(50) ]
       for i, c in enumerate(head): 
         xs[i][c_i[c]] = 1.
       ... #print(np.array( list(reversed(xs)) ).shape)
       xss.append( np.array( list(reversed(xs)) ) )
       
-      ys = [ [0.]*128 for _ in range(50) ]
+      ys = [ [0.]*DIM for _ in range(50) ]
       for i, c in enumerate(tail): 
         ys[i][c_i[c]] = 1.
       yss.append( np.array( ys ) )
@@ -93,21 +99,26 @@ def predict():
   i_c = { i:c for c, i in c_i.items() }
   xss = []
   heads = []
-  with open("dataset/corpus.distinct.txt", "r") as f:
-    for fi, line in enumerate(f):
+  with open("dataset/wakati.distinct.txt", "r") as f:
+    lines = [line for line in f]
+    for fi, line in enumerate(lines):
       print("now iter ", fi)
       if fi >= 1000: 
         break
       line = line.strip()
-      head, tail = line.split("___SP___")
+      try:
+        head, tail = line.split("___SP___")
+      except ValueError as e:
+        print(e)
+        continue
       heads.append( head ) 
-      xs = [ [0.]*128 for _ in range(50) ]
+      xs = [ [0.]*DIM for _ in range(50) ]
       for i, c in enumerate(head): 
         xs[i][c_i[c]] = 1.
       xss.append( np.array( list(reversed(xs)) ) )
     
   Xs = np.array( xss[:128] )
-  model = sorted( glob.glob("models.gru.dataset10000/*.h5") ).pop(0)
+  model = sorted( glob.glob("models/*.h5") ).pop(0)
   print("loaded model is ", model)
   autoencoder.load_weights(model)
 
