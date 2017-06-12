@@ -18,7 +18,7 @@ timesteps   = 50
 inputs      = Input(shape=(timesteps, 128))
 encoded     = LSTM(512)(inputs)
 """
-attentionを無効にするには、encodedをRepeatVectorに直接入力する 
+attを無効にするには、encodedをRepeatVectorに直接入力する 
 encoderのModelの入力をmulではなく、encodedにする
 """
 inputs_a    = Input(shape=(timesteps, 128))
@@ -35,28 +35,6 @@ decoded     = TD(Dense(128, activation='softmax'))(x)
 autoencoder = Model(inputs, decoded)
 autoencoder.compile(optimizer=Adam(), loss='categorical_crossentropy')
 
-def test():
-  xss = []
-  for _ in range(1000):
-    xs = []
-    for _ in range(0,10):
-      ba = [0.]*128
-      ba[random.randint(0,9)] = 1
-      xs.append( ba )
-    xss.append( xs ) 
-
-  yss = []
-  for _ in range(1000):
-    ys = []
-    for _ in range(0,10):
-      ba = [0.]*128
-      ba[random.randint(0,9)] = 1
-      ys.append( ba )
-    yss.append( ys )
-  Xs = np.array( xss ) 
-  Ys = np.array( yss )
-  autoencoder.fit(Xs, Ys)
-
 buff = None
 def callbacks(epoch, logs):
   global buff
@@ -69,9 +47,12 @@ def train():
   xss = []
   yss = []
   with open("dataset/corpus.distinct.txt", "r") as f:
-    for fi, line in enumerate(f):
+    lines = [line for line in f]
+    print( len(lines) )
+    random.shuffle( lines )
+    for fi, line in enumerate(lines):
       print("now iter ", fi)
-      if fi >= 2000: 
+      if fi >= 10000: 
         break
       line = line.strip()
       head, tail = line.split("___SP___")
@@ -94,9 +75,8 @@ def train():
     print("loaded model is ", model)
     autoencoder.load_weights(model)
 
-    """ 確実に更新するため、古いデータは消す """
-    #os.system("rm models/*")
-  for i in range(1000):
+  """ 確実に更新するため、古いデータは消す """
+  for i in range(2):
     
     print_callback = LambdaCallback(on_epoch_end=callbacks)
     batch_size = random.randint( 32, 64 )
