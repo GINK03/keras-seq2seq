@@ -16,7 +16,7 @@ def getKana(chasen):
   es = chasen.split("\n")
   es.pop()
   es.pop()
-  return " ".join( map(lambda x:x.split("\t")[1], es) )
+  return "".join( map(lambda x:x.split("\t")[1], es) )
 
 def _gen_corpus(arr):
   i, total, name = arr
@@ -33,15 +33,13 @@ def _gen_corpus(arr):
   return sens
 
 def gen_corpus():
-  files = glob.glob("/home/gimpei/kotlin-headlessbrowser-selenium-jsoup-parser/data/nocturne/*")
+  files = glob.glob("../nocturne/*")
   total = len(files)
   args  = [ (i, total, name) for i, name in enumerate(files) ]
-
   sens  = []
-  with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
-    for _sens in executor.map(_gen_corpus, args[:20000]):
+  with concurrent.futures.ProcessPoolExecutor(max_workers=16) as executor:
+    for _sens in executor.map(_gen_corpus, args[:100000]):
       sens += _sens
-
   m = MeCab.Tagger("-Ochasen")
   with open("corpus.txt", "w") as f:
     for i in range(len(sens) - 2):
@@ -57,36 +55,53 @@ def gen_corpus():
           f.write(j + "\n")
           print(j)
 
-
+def gen_wakati():
+  files = glob.glob("../nocturne/*")
+  total = len(files)
+  args  = [ (i, total, name) for i, name in enumerate(files) ]
+  sens  = []
+  with concurrent.futures.ProcessPoolExecutor(max_workers=16) as executor:
+    for _sens in executor.map(_gen_corpus, args[:10000]):
+      sens += _sens
+  m = MeCab.Tagger("-Owakati")
+  with open("wakati.txt", "w") as f:
+    for es, sen in enumerate(sens):
+      if sen == "":
+        continue
+      text = m.parse(sen).strip().replace(" ", "/")
+      if len(text) <= 50 and len(sen) <= 50:
+        f.write( "___SP___".join( [sen, text] ) + "\n")
+        if es%100 == 0:
+          print( "___SP___".join( [sen, text] ) )
+      
 
 """ 128位以下は削る """
-
-def distinct():
+def distinct(depth=128, target="corpus.txt", output="corpus.distinct.txt"):
   c_f = {}
-  for c in open("corpus.txt", "r").read() :
+  for c in open(target, "r").read() :
     if c_f.get(c) is None:
       c_f[c] = 0
     c_f[c] += 1
-  
   for e, (c, f) in enumerate(sorted( c_f.items(), key=lambda x:x[1]*-1)):
     print(e, c, f)
-   
-  c_i = {c:e for e, (c,f) in  enumerate(sorted( c_f.items(), key=lambda x:x[1]*-1)[:128]) }
-
+  c_i = {c:e for e, (c,f) in  enumerate(sorted( c_f.items(), key=lambda x:x[1]*-1)[:depth]) }
   print(c_i)
-  
   open("c_i.pkl", "wb").write( pickle.dumps( c_i ) )
-  with open("corpus.txt", "r") as r, open("corpus.distinct.txt", "w") as w:
+  with open(target, "r") as r, open(output, "w") as w:
     for ln in r:
       ln = ln.strip()
-      
       distict = "".join( filter(lambda x: x in c_i, list(ln) ) )
-
       w.write( distict + "\n" ) 
 
 if __name__ == '__main__':
   if '--gen_corpus' in sys.argv:
     gen_corpus()
+  
+  if '--gen_wakati' in sys.argv:
+    gen_wakati()
 
   if '--distinct' in sys.argv:
-    distinct()
+    distinct(depth=128)
+
+  if '--distinct-wakati' in sys.argv:
+    distinct(depth=1024, target="wakati.txt", output="wakati.distinct.txt") 
