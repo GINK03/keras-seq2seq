@@ -1,11 +1,14 @@
-from keras.layers     import Input, Dense, GRU, LSTM, RepeatVector
-from keras.models     import Model
-from keras.layers.core import Flatten
-from keras.callbacks  import LambdaCallback 
-from keras.optimizers import SGD, RMSprop, Adam
+from keras.layers          import Lambda, Input, Dense, GRU, LSTM, RepeatVector
+from keras.models          import Model
+from keras.layers.core     import Flatten
+from keras.callbacks       import LambdaCallback 
+from keras.optimizers      import SGD, RMSprop, Adam
 from keras.layers.wrappers import Bidirectional as Bi
 from keras.layers.wrappers import TimeDistributed as TD
-from keras.layers          import merge
+from keras.layers          import merge, multiply
+from keras.regularizers    import l2
+from keras.layers.core     import Reshape
+import keras.backend as K
 import numpy as np
 import random
 import sys
@@ -14,6 +17,8 @@ import glob
 import copy
 import os
 import re
+
+
 timesteps   = 50
 inputs      = Input(shape=(timesteps, 128))
 encoded     = LSTM(512)(inputs)
@@ -23,13 +28,13 @@ encoderのModelの入力をmulではなく、encodedにする
 """
 inputs_a    = Input(shape=(timesteps, 128))
 a_vector    = Dense(512, activation='softmax')(Flatten()(inputs))
-mul         = merge([encoded, a_vector],  mode='mul') 
+# mul         = merge([encoded, a_vector],  mode='mul')  # this for keras v1
+mul         = multiply([encoded, a_vector]) 
 encoder     = Model(inputs, mul)
 
 """ encoder側は、基本的にRNNをスタックしない """
 x           = RepeatVector(timesteps)(mul)
 x           = Bi(LSTM(512, return_sequences=True))(x)
-#x           = LSTM(512, return_sequences=True)(x)
 decoded     = TD(Dense(128, activation='softmax'))(x)
 
 autoencoder = Model(inputs, decoded)
@@ -98,7 +103,7 @@ def predict():
   with open("dataset/corpus.distinct.txt", "r") as f:
     for fi, line in enumerate(f):
       print("now iter ", fi)
-      if fi >= 1000: 
+      if fi >= 500: 
         break
       line = line.strip()
       head, tail = line.split("___SP___")
@@ -109,18 +114,18 @@ def predict():
       xss.append( np.array( list(reversed(xs)) ) )
     
   Xs = np.array( xss[:128] )
-  model = sorted( glob.glob("models.dataset1000/*.h5") ).pop(0)
+  model = sorted( glob.glob("models/*.h5") ).pop(0)
   print("loaded model is ", model)
   autoencoder.load_weights(model)
 
   Ys = autoencoder.predict( Xs ).tolist()
-  for head, y in zip(heads, Ys):
+  for ez, (head, y) in enumerate(zip(heads, Ys)):
     terms = []
     for v in y:
       term = max( [(s, i_c[i]) for i,s in enumerate(v)] , key=lambda x:x[0])[1]
       terms.append( term )
     tail = re.sub(r"」.*?$", "」", "".join( terms ) )
-    print( head, "___SP___", tail )
+    print(ez, head, "___SP___", tail )
 if __name__ == '__main__':
   if '--test' in sys.argv:
     test()

@@ -38,7 +38,7 @@ def gen_corpus():
   args  = [ (i, total, name) for i, name in enumerate(files) ]
   sens  = []
   with concurrent.futures.ProcessPoolExecutor(max_workers=16) as executor:
-    for _sens in executor.map(_gen_corpus, args[:100000]):
+    for _sens in executor.map(_gen_corpus, args[:1000]):
       sens += _sens
   m = MeCab.Tagger("-Ochasen")
   with open("corpus.txt", "w") as f:
