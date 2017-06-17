@@ -8,6 +8,7 @@ from keras.layers.wrappers import TimeDistributed as TD
 from keras.layers          import merge, multiply
 from keras.regularizers    import l2
 from keras.layers.core     import Reshape
+from keras.layers.normalization import BatchNormalization as BN
 import keras.backend as K
 import numpy as np
 import random
@@ -22,12 +23,10 @@ import re
 timesteps   = 50
 inputs      = Input(shape=(timesteps, 128))
 encoded     = LSTM(512)(inputs)
-"""
-attを無効にするには、encodedをRepeatVectorに直接入力する 
-encoderのModelの入力をmulではなく、encodedにする
-"""
-inputs_a    = Input(shape=(timesteps, 128))
-a_vector    = Dense(512, activation='softmax')(Flatten()(inputs))
+inputs_a    = inputs
+inputs_a    = Dense(2048)(inputs_a)
+inputs_a    = BN()(inputs_a)
+a_vector    = Dense(512, activation='softmax')(Flatten()(inputs_a))
 mul         = multiply([encoded, a_vector]) 
 encoder     = Model(inputs, mul)
 
@@ -55,7 +54,7 @@ def train():
     random.shuffle( lines )
     for fi, line in enumerate(lines):
       print("now iter ", fi)
-      if fi >= 10000: 
+      if fi >= 150000: 
         break
       line = line.strip()
       head, tail = line.split("___SP___")
