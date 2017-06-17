@@ -28,11 +28,9 @@ encoderのModelの入力をmulではなく、encodedにする
 """
 inputs_a    = Input(shape=(timesteps, 128))
 a_vector    = Dense(512, activation='softmax')(Flatten()(inputs))
-# mul         = merge([encoded, a_vector],  mode='mul')  # this for keras v1
 mul         = multiply([encoded, a_vector]) 
 encoder     = Model(inputs, mul)
 
-""" encoder側は、基本的にRNNをスタックしない """
 x           = RepeatVector(timesteps)(mul)
 x           = Bi(LSTM(512, return_sequences=True))(x)
 decoded     = TD(Dense(128, activation='softmax'))(x)
@@ -65,7 +63,6 @@ def train():
       xs = [ [0.]*128 for _ in range(50) ]
       for i, c in enumerate(head): 
         xs[i][c_i[c]] = 1.
-      ... #print(np.array( list(reversed(xs)) ).shape)
       xss.append( np.array( list(reversed(xs)) ) )
       
       ys = [ [0.]*128 for _ in range(50) ]
@@ -80,16 +77,12 @@ def train():
     print("loaded model is ", model)
     autoencoder.load_weights(model)
 
-    """ 確実に更新するため、古いデータは消す """
-    #os.system("rm models/*")
   for i in range(2000):
     print_callback = LambdaCallback(on_epoch_end=callbacks)
     batch_size = random.randint( 32, 64 )
     random_optim = random.choice( [Adam(), SGD(), RMSprop()] )
-    #print( vars( autoencoder.optimizer.lr  ) )
     print( random_optim )
     autoencoder.optimizer = random_optim
-    #sys.exit()
     autoencoder.fit( Xs, Ys,  shuffle=True, batch_size=batch_size, epochs=1, callbacks=[print_callback] )
     autoencoder.save("models/%9f_%09d.h5"%(buff['loss'], i))
     print("saved ..")
@@ -103,8 +96,6 @@ def predict():
   with open("dataset/corpus.distinct.txt", "r") as f:
     for fi, line in enumerate(f):
       print("now iter ", fi)
-      if fi >= 500: 
-        break
       line = line.strip()
       head, tail = line.split("___SP___")
       heads.append( head ) 
@@ -113,7 +104,8 @@ def predict():
         xs[i][c_i[c]] = 1.
       xss.append( np.array( list(reversed(xs)) ) )
     
-  Xs = np.array( xss[:128] )
+  Xs = np.array( xss )
+  print( Xs)
   model = sorted( glob.glob("models/*.h5") ).pop(0)
   print("loaded model is ", model)
   autoencoder.load_weights(model)
